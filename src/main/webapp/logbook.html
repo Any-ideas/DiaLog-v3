@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logbook</title>
-    <link rel="stylesheet" type="text/css" href="index.css">
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <title>日常记录</title>
+    <link rel="stylesheet" type="text/css" href="./logbook.css">
+    <link rel="stylesheet" type="text/css" href="./styles.css">
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://fastly.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/vue@2"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2"></script>
+    <script src="https://fastly.jsdelivr.net/npm/moment@2"></script>
 </head>
 <body>
 <div id="logbook">
@@ -18,75 +18,155 @@
         <nav>
             <div class="nav-left">
                 <ul>
-                    <li><a href="index.html">Home Page</a></li>
-                    <li><a href="logbook.html">Logbook</a></li>
-                    <li><a href="trends1.html">Blood Sugar Trend</a></li>
-                    <li><a href="settings.html">User Info</a></li>
+                    <li><a href="index.html">首页</a></li>
+                    <li><a href="logbook.html">血糖记录</a></li>
+                    <li><a href="trends.html">血糖趋势</a></li>
+                    <li><a href="settings.html">个人信息</a></li>
+
                 </ul>
             </div>
             <div class="nav-right">
-                <ul v-if="currentUserID">
-                    <li><span style="line-height: 37px">"Welcome"</span></li>
-                    <li><span style="line-height: 37px">{{ currentUserID }}</span></li>
-                    <li><span style="line-height: 37px">{{ currentUserAccount }}</span></li>
-                    <el-button @click="logout()">Logout</el-button>
+                <ul v-if="currentUser">
+                    <li><span style="line-height: 37px">{{ userAccount }}</span></li>
                 </ul>
                 <ul v-else>
-                    <li><a href="login.html">Login</a></li>
-                    <li><a href="register.html">Register</a></li>
+                    <!-- 渲染登录/注册链接 -->
+                    <li><a href="login.html">登录</a></li>
+                    <li><a href="register.html">注册</a></li>
                 </ul>
             </div>
         </nav>
     </header>
-
     <div class="add-activity-button-container">
-        <el-button @click="openModal()">Add Task</el-button>
+        <el-button @click="openModal('simple',null)">添加简单记录</el-button>
+    </div>
+    <div class="add-activity-button-container">
+        <el-button @click="openModal('medium',null)">添加中等记录</el-button>
+    </div>
+    <div class="add-activity-button-container">
+        <el-button @click="openModal('complex',null)">添加复杂记录</el-button>
     </div>
 
     <main>
-        <section id="logbook-entries" v-if="logs.length > 0">
-<!--            <el-table :data="logs" class="table" style="width: 100%" stripe border>-->
-<!--                <el-table-column prop="id" label="id" width="180"></el-table-column>-->
-<!--                <el-table-column prop="createTime" label="Date" width="180"></el-table-column>-->
-<!--                <el-table-column prop="bloodSugar" label="Blood Sugar" width="180"></el-table-column>-->
-<!--                <el-table-column prop="createTime" label="Time" width="180"></el-table-column>-->
-<!--                <el-table-column prop="notes" label="Notes" width="180"></el-table-column>-->
-<!--                <el-table-column label="Actions">-->
-<!--                    <template slot-scope="scope">-->
-<!--                        <el-button type="text" @click="deleteLog(scope.row.id)">Delete</el-button>-->
-<!--                        <el-button type="text" @click="openModal(scope.row.id)">Edit</el-button>-->
-<!--                    </template>-->
-<!--                </el-table-column>-->
-<!--            </el-table>-->
-        </section>
-        <p v-else>no record.</p>
+        <el-table :data="daydatas" class="table" style="width: 90%" stripe border>
+            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+            <el-table-column prop="createTime" label="日期" :formatter="formatDate" width="180"></el-table-column>
+            <el-table-column prop="bloodSugar" label="血糖数值"></el-table-column>
+            <el-table-column prop="notes" label="notes"></el-table-column>
+            <el-table-column prop="createTime" label="记录时间" :formatter="formatTime"></el-table-column>
+            <el-table-column label="操作">
+                <template slot-scope="scope">
+                    <el-button type="text" @click="deleteRecord(scope.row.id)">删除</el-button>
+                    <el-button type="text" @click="openModal('complex',scope.row.id)">修改</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
     </main>
 
     <el-dialog
-            :visible.sync="isModalOpen"
-            title="Add New Entry"
-            width="30%"
-            :before-close="closeLogModal">
-        <el-form ref="logForm" :model="logForm" label-width="100px">
-            <el-form-item label="Blood Sugar" prop="bloodSugar">
-                <el-input v-model="logForm.bloodSugar" placeholder="Enter blood sugar level"></el-input>
-            </el-form-item>
-            <el-form-item label="Notes" prop="notes">
-                <el-input type="textarea" v-model="logForm.notes" placeholder="Enter notes"></el-input>
-            </el-form-item>
-            <!-- Include other fields as required -->
-        </el-form>
+        :visible.sync="isModalOpen"
+        :title="modalType === 'simple' ? '添加简单记录' : modalType === 'medium' ? '添加中等记录' : '添加复杂记录'"
+        width="50%"
+        :before-close="closeModal">
+
+        <!-- bloodSugar for simple record -->
+        <template v-if="modalType === 'simple'">
+            <el-form ref="taskForm" :model="taskForm" label-width="120px">
+                <el-form-item label="血糖数值" prop="bloodSugar">
+                    <el-input type="textarea" v-model="taskForm.bloodSugar" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="notes" prop="notes">
+                    <el-input type="textarea" v-model="taskForm.notes" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="createTime" prop="createTime">
+                    <el-input type="textarea" v-model="taskForm.createTime" placeholder="请输入值"></el-input>
+                </el-form-item>
+            </el-form>
+        </template>
+
+        <!-- bloodSugar for medium record -->
+        <template v-else-if="modalType === 'medium'">
+            <el-form ref="taskForm" :model="taskForm" label-width="130px">
+                <el-form-item label="血糖数值" prop="bloodSugar">
+                    <el-input type="textarea" v-model="taskForm.bloodSugar" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="notes" prop="notes">
+                    <el-input type="textarea" v-model="taskForm.notes" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="createTime" prop="createTime">
+                    <el-input type="textarea" v-model="taskForm.createTime" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="updateTime" prop="updateTime">
+                    <el-input type="textarea" v-model="taskForm.updateTime" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="carb" prop="carb">
+                    <el-input type="textarea" v-model="taskForm.carb" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="mealDescription" prop="mealDescription">
+                    <el-input type="textarea" v-model="taskForm.mealDescription" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="insulinDose" prop="insulinDose">
+                    <el-input type="textarea" v-model="taskForm.insulinDose" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="medication" prop="medication">
+                    <el-input type="textarea" v-model="taskForm.medication" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="exerciseDescription" prop="exerciseDescription">
+                    <el-input type="textarea" v-model="taskForm.exerciseDescription" placeholder="请输入值"></el-input>
+                </el-form-item>
+            </el-form>
+        </template>
+
+        <!-- bloodSugar for complex record -->
+        <template v-else-if="modalType === 'complex'">
+            <el-form ref="taskForm" :model="taskForm" label-width="130px">
+                <el-form-item label="血糖数值" prop="bloodSugar">
+                    <el-input type="textarea" v-model="taskForm.bloodSugar" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="notes" prop="notes">
+                    <el-input type="textarea" v-model="taskForm.notes" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="createTime" prop="createTime">
+                    <el-input type="textarea" v-model="taskForm.createTime" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="carb" prop="carb">
+                    <el-input type="textarea" v-model="taskForm.carb" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="mealDescription" prop="mealDescription">
+                    <el-input type="textarea" v-model="taskForm.mealDescription" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="insulinDose" prop="insulinDose">
+                    <el-input type="textarea" v-model="taskForm.insulinDose" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="medication" prop="medication">
+                    <el-input type="textarea" v-model="taskForm.medication" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="exerciseDescription" prop="exerciseDescription">
+                    <el-input type="textarea" v-model="taskForm.exerciseDescription" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="exerciseType" prop="exerciseType">
+                    <el-input type="textarea" v-model="taskForm.exerciseType" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="exerciseDuration" prop="exerciseDuration">
+                    <el-input type="textarea" v-model="taskForm.exerciseDuration" placeholder="请输入值"></el-input>
+                </el-form-item>
+                <el-form-item label="insulinType" prop="insulinType">
+                    <el-input type="textarea" v-model="taskForm.insulinType" placeholder="请输入值"></el-input>
+                </el-form-item>
+            </el-form>
+        </template>
 
         <span slot="footer" class="dialog-footer">
-        <el-button @click="closeLogModal">Cancel</el-button>
-        <el-button type="primary" @click="logForm.id ? updateLog() : createLog()">
-            {{ logForm.id ? 'Update Log' : 'Create Log' }}
-        </el-button>
-    </span>
-    </el-dialog>
+            <el-button @click="closeModal">取消</el-button>
+            <el-button type="primary" @click="taskForm.id ? updateTask() : createTask()">
+                {{ taskForm.id ? '修改记录' : '创建记录' }}
+            </el-button>
+        </span>
+</el-dialog>
+
 
     <footer>
-        <p>@2024，DiaLog</p>
+        <p>@2024，血糖系统</p>
     </footer>
 </div>
 
@@ -96,200 +176,234 @@
         el: '#logbook',
         data() {
             return {
-                userMes: {},
-                currentUserAccount:null,
-                currentUserID: null,
-                title: '',
+                useMes: JSON.parse(localStorage.getItem('userMes')),
                 currentUser: null,
+                modalType: '',
                 daydatas: [],
                 isModalOpen: false,
                 createTime: '',
-                content: '',
-                logForm: {
+                bloodSugar: '',
+                taskForm: {
+                    // Simple
                     id: '',
-                    userId: '',
                     bloodSugar: '',
-                    notes: '',
-                    createTime: '', // Format these dates as 'YYYY-MM-DD HH:mm:ss'
-                    updateTime: '',
-                    logType: 1,
-                    carb: '',
-                    mealDescription: '',
-                    insulinDose: '',
-                    medication: '',
-                    exerciseDescription: '',
-                    exerciseType: '',
-                    exerciseDuration: '',
-                    insulinType: '',
+                    notes:'',
+                    createTime:'',
+                    updateTime:'',
+                    logType:'',
+                    //comprehensive
+                    carb:'',
+                    mealDescription:'',
+                    insulinDose:'',
+                    medication:'',
+                    exerciseDescription:'',
+                    //intensive
+                    exerciseType:'',
+                    exerciseDuration:'',
+                    insulinType:'',
                 },
+                userAccount:null,
             }
         },
         created() {
-            const userMes = JSON.parse(localStorage.getItem('userMes'));
-            this.currentUserAccount = userMes.userAccount;
-            this.currentUserID = userMes.userID;
-            this.readLog();
+            this.getAll();
+           var  userAccount = localStorage.getItem("userAccount")
+             this.currentUser = []
+            this.userAccount = userAccount
         },
         methods: {
-            openModal(logId) {
+            formatDate(row) {
+                // 格式化日期
+                return moment(row.createTime).format('YYYY年MM月DD日');
+            },
+            formatTime(row) {
+                // 格式化时间
+                return moment(row.createTime).format('HH时mm分ss秒');
+            },
+            openModal(type, dadataId) {
+                this.modalType = type; // This will be 'simple', 'medium', or 'complex'
                 this.isModalOpen = true;
-                if (logId) {
-                    const selectedLog = this.logs.find(log => log.id === logId);
-                    if (selectedLog) {
-                        this.setLogForm(selectedLog);
+                if (dadataId !== undefined && dadataId !== null) {
+                    const selectedRecord = this.daydatas.find(record => record.id === dadataId);
+                    if (selectedRecord) {
+                        this.taskForm.id = selectedRecord.id;
+                        this.taskForm.bloodSugar = selectedRecord.bloodSugar;
+                        this.taskForm.notes = selectedRecord.notes;
+                        this.taskForm.createTime = selectedRecord.createTime;
+                        this.taskForm.updateTime = selectedRecord.updateTime;
+                        this.taskForm.logType = selectedRecord.logType;
+                        this.taskForm.carb = selectedRecord.carb;
+                        this.taskForm.mealDescription = selectedRecord.mealDescription;
+                        this.taskForm.insulinDose = selectedRecord.insulinDose;
+                        this.taskForm.medication = selectedRecord.medication;
+                        this.taskForm.exerciseDescription = selectedRecord.exerciseDescription;
+                        this.taskForm.exerciseType = selectedRecord.exerciseType;
+                        this.taskForm.exerciseDuration = selectedRecord.exerciseDuration;
+                        this.taskForm.insulinType = selectedRecord.insulinType;
                     }
                 } else {
-                    this.resetLogForm();
+                    this.taskForm.id = '';
+                    this.taskForm.bloodSugar = '';
+                    this.taskForm.notes='';
+                    this.taskForm.createTime='';
+                    this.taskForm.updateTime='';
+                    this.taskForm.logType='';
+                    //comprehensive
+                    this.taskForm.carb='';
+                    this.taskForm.mealDescription='';
+                    this.taskForm.insulinDose='';
+                    this.taskForm.medication='';
+                    this.taskForm.exerciseDescription='';
+                    //intensive
+                    this.taskForm.exerciseType='';
+                    this.taskForm.exerciseDuration='';
+                    this.taskForm.insulinType='';
                 }
             },
-
-            createLog() {
-                const createTime = this.formatCurrentDateTime();
-                axios.post("https://dialog-1d1125195912.herokuapp.com/api/post/add/log", // Adjust the URL to your log endpoint
+            createTask() {
+                axios.post("http://127.0.0.1:8080/api/daydata/add",
                     {
-                        userId: this.currentUserID,
-                        bloodSugar: this.logForm.bloodSugar,
-                        notes: this.logForm.notes,
-                        createTime: createTime, // Format these dates as 'YYYY-MM-DD HH:mm:ss'
-                        updateTime: null,
-                        logType: this.logForm.logType,
-                        carb: this.logForm.carb,
-                        mealDescription: this.logForm.mealDescription,
-                        insulinDose: this.logForm.insulinDose,
-                        medication: this.logForm.medication,
-                        exerciseDescription: this.logForm.exerciseDescription,
-                        exerciseType: this.logForm.exerciseType,
-                        exerciseDuration: this.logForm.exerciseDuration,
-                        insulinType: this.logForm.insulinType
+                        id: this.taskForm.id,
+                        bloodSugar: this.taskForm.bloodSugar,
+                        notes: this.taskForm.notes,
+                        createTime: this.taskForm.createTime,
+                        updateTime: this.taskForm.updateTime,
+                        logType: this.taskForm.logType,
+                        //comprehensive
+                        carb: this.taskForm.carb,
+                        mealDescription: this.taskForm.mealDescription,
+                        insulinDose: this.taskForm.insulinDose,
+                        medication: this.taskForm.medication,
+                        exerciseDescription: this.taskForm.exerciseDescription,
+                        //intensive
+                        exerciseType: this.taskForm.exerciseType,
+                        exerciseDuration: this.taskForm.exerciseDuration,
+                        insulinType: this.taskForm.insulinType,
+
                     })
                     .then(response => {
                         const responseData = response.data;
-                        console.log("responseData:", responseData);
-                        if (responseData.code === 200) {
-                            console.log("Log Creation Success", responseData);
-                            this.readLog(); // Adjust to your method for reading logs
+                        if (responseData.code === 0) {
+                            console.log("添加成功", response.data);
+                            this.getAll();
                             this.isModalOpen = false;
-                            this.resetLogForm(); // Adjust to your method for resetting the log form
-
+                            this.taskForm.bloodSugar = '';
+                            this.taskForm.notes='';
+                            this.taskForm.createTime='';
+                            this.taskForm.updateTime='';
+                            this.taskForm.logType='';
+                            //comprehensive
+                            this.taskForm.carb='';
+                            this.taskForm.mealDescription='';
+                            this.taskForm.insulinDose='';
+                            this.taskForm.medication='';
+                            this.taskForm.exerciseDescription='';
+                            //intensive
+                            this.taskForm.exerciseType='';
+                            this.taskForm.exerciseDuration='';
+                            this.taskForm.insulinType='';
                         } else {
-                            console.log("Log Creation Failed", responseData);
                             alert(responseData.message);
                         }
                     })
                     .catch(error => {
-                        console.error("DATA_NOT_FOUND_ERROR:", error);
+                        console.error("检索时发生错误:", error);
                     });
-            },
 
-            updateLog() {
-                const updateTime = this.formatCurrentDateTime();
-                axios.post("https://dialog-1d1125195912.herokuapp.com/api/post/update/log", { // Adjust the URL to your log update endpoint
-                    id: this.logForm.id,
-                    userId: this.currentUserID,
-                    bloodSugar: this.logForm.bloodSugar,
-                    notes: this.logForm.notes,
-                    createTime: this.logForm.createTime, // Format these dates as 'YYYY-MM-DD HH:mm:ss'
-                    updateTime: updateTime, // or leave them as null if not set
-                    logType: this.logForm.logType,
-                    carb: this.logForm.carb,
-                    mealDescription: this.logForm.mealDescription,
-                    insulinDose: this.logForm.insulinDose,
-                    medication: this.logForm.medication,
-                    exerciseDescription: this.logForm.exerciseDescription,
-                    exerciseType: this.logForm.exerciseType,
-                    exerciseDuration: this.logForm.exerciseDuration,
-                    insulinType: this.logForm.insulinType
+            },
+            updateTask() {
+                axios.post("http://127.0.0.1:8080/api/daydata/update", {
+                    id: this.taskForm.id,
+                    bloodSugar: this.taskForm.bloodSugar,
+                    notes: this.taskForm.notes,
+                    createTime: this.taskForm.createTime,
+                    updateTime: this.taskForm.updateTime,
+                    logType: this.taskForm.logType,
+                    //comprehensive
+                    carb: this.taskForm.carb,
+                    mealDescription: this.taskForm.mealDescription,
+                    insulinDose: this.taskForm.insulinDose,
+                    medication: this.taskForm.medication,
+                    exerciseDescription: this.taskForm.exerciseDescription,
+                    //intensive
+                    exerciseType: this.taskForm.exerciseType,
+                    exerciseDuration: this.taskForm.exerciseDuration,
+                    insulinType: this.taskForm.insulinType,
                 })
                     .then(response => {
                         const responseData = response.data;
-                        if (responseData.code === 200) {
-                            console.log("Log Update Success", response.data);
-                            this.readLog(); // Adjust to your method for reading logs
+                        if (responseData.code === 0) {
+                            console.log("修改成功", response.data);
+                            this.getAll();
                             this.isModalOpen = false;
-                            this.resetLogForm(); // Adjust to your method for resetting the log form
+                            this.taskForm.id = '';
+                            this.taskForm.bloodSugar = '';
+                            this.taskForm.notes='';
+                            this.taskForm.createTime='';
+                            this.taskForm.updateTime='';
+                            this.taskForm.logType='';
+                            //comprehensive
+                            this.taskForm.carb='';
+                            this.taskForm.mealDescription='';
+                            this.taskForm.insulinDose='';
+                            this.taskForm.medication='';
+                            this.taskForm.exerciseDescription='';
+                            //intensive
+                            this.taskForm.exerciseType='';
+                            this.taskForm.exerciseDuration='';
+                            this.taskForm.insulinType='';
                         } else {
                             alert(responseData.message);
                         }
                     })
                     .catch(error => {
-                        console.error("DATA_NOT_FOUND_ERROR:", error);
+                        console.error("检索时发生错误:", error);
                     });
             },
-
-            closeLogModal() {
-                this.$confirm('Are you sure you want to close this？', 'hint', {
-                    confirmButtonText: 'Sure',
-                    cancelButtonText: 'cancel',
+            closeModal() {
+                this.$confirm('确定要取消吗？', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
                     type: 'info'
                 }).then(() => {
                     this.isModalOpen = false;
-                    this.resetTaskForm();
+                    this.taskForm.bloodSugar = '';
                 }).catch(() => {
                 });
             },
-
-            readLog() {
-                axios.post("https://dialog-1d1125195912.herokuapp.com/api/post/read/log", // Adjust the URL to your log read endpoint
+            getAll() {
+                axios.post("http://127.0.0.1:8080/api/daydata/getByUserId",
                     {
-                        userId: this.currentUserID
+                        userId: this.useMes.user_id
                     })
                     .then(response => {
-                        console.log("readLog Processing");
+                        console.log(response.data.data)
                         if (Array.isArray(response.data.data)) {
-                            this.logs = response.data.data;
-                            console.log("All logs:", this.logs);
-
+                            this.daydatas = response.data.data;
                         } else if (typeof response.data.data === 'object') {
-                            console.log("Object log", response.data.data);
-                            this.logs = Object.values(response.data.data);
+                            this.daydatas = Object.values(response.data.data);
                         } else {
-                            console.error("Unknown data type:", response.data);
+                            console.error("不支持的数据类型:", response.data.data);
                         }
                     })
                     .catch(error => {
-                        console.error("DATA_NOT_FOUND_ERROR:", error);
+                        console.error("检索时发生错误:", error);
                     });
             },
-
-            deleteLog(logId) {
-                this.$confirm('Are you sure you want to delete this log?', 'Notification', {
-                    confirmButtonText: 'Sure',
-                    cancelButtonText: 'Cancel',
-                    type: 'warning'
-                }).then(() => {
-                    axios.post("https://dialog-1d1125195912.herokuapp.com/api/post/delete/log", { id: logId, userId: this.currentUserID }) // Adjust the URL to your log delete endpoint
+            deleteRecord(id) {
+                if (window.confirm('确定删除吗？')) {
+                    axios.post('http://127.0.0.1:8080/api/daydata/delete', { id: id })
                         .then(response => {
-                            const responseData = response.data;
-                            if (responseData.code === 200) {
-                                console.log("Delete Success", response.data);
-                                this.readLog(); // Adjust to your method for reading logs
+                            if (response.data) {
+                                this.getAll();
                             } else {
-                                alert(responseData.message);
+                                console.error('删除失败，未返回有效数据');
                             }
                         })
                         .catch(error => {
-                            console.error("Delete Failed:", error);
+                            console.error('删除记录时出错：', error);
                         });
-                }).catch(() => {
-                    // Delete cancel
-                });
-            },
-
-            logout(){
-                localStorage.clear();
-                // window.location.href = "login.html";
-                window.location.replace('login.html');
-            },
-            formatCurrentDateTime() {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0'); // January is 0!
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-            },
+                }},
         },
     })
 
